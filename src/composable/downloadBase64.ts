@@ -1,4 +1,4 @@
-import { extension as getExtensionFromMimeType, extension as getMimeTypeFromExtension } from 'mime-types';
+import { extension as getExtensionFromMimeType, lookup as getMimeTypeFromExtension } from 'mime-types';
 import type { Ref } from 'vue';
 import _ from 'lodash';
 
@@ -41,7 +41,7 @@ function getFileExtensionFromMimeType({
   defaultExtension?: string
 }) {
   if (mimeType) {
-    return getExtensionFromMimeType(mimeType) ?? defaultExtension;
+    return getExtensionFromMimeType(mimeType) || defaultExtension;
   }
 
   return defaultExtension;
@@ -53,18 +53,20 @@ function downloadFromBase64({ sourceValue, filename, extension, fileMimeType }:
     throw new Error('Base64 string is empty');
   }
 
-  const defaultExtension = extension ?? 'txt';
+  const normalizedExtension = extension?.trim().replace(/^\./, '') || undefined;
+  const defaultExtension = normalizedExtension ?? 'txt';
   const { mimeType } = getMimeTypeFromBase64({ base64String: sourceValue });
   let base64String = sourceValue;
   if (!mimeType) {
-    const targetMimeType = fileMimeType ?? getMimeTypeFromExtension(defaultExtension);
+    const lookedUpMimeType = getMimeTypeFromExtension(defaultExtension) || 'application/octet-stream';
+    const targetMimeType = fileMimeType || lookedUpMimeType;
     base64String = `data:${targetMimeType};base64,${sourceValue}`;
   }
 
-  const cleanExtension = extension ?? getFileExtensionFromMimeType(
-    { mimeType, defaultExtension });
-  let cleanFileName = filename ?? `file.${cleanExtension}`;
-  if (extension && !cleanFileName.endsWith(`.${extension}`)) {
+  const cleanExtension = normalizedExtension ?? getFileExtensionFromMimeType({ mimeType, defaultExtension });
+  let cleanFileName = filename?.trim() || `file.${cleanExtension}`;
+  const hasExtension = /\.[a-z0-9]+$/i.test(cleanFileName);
+  if ((normalizedExtension || !hasExtension) && !cleanFileName.endsWith(`.${cleanExtension}`)) {
     cleanFileName = `${cleanFileName}.${cleanExtension}`;
   }
 
@@ -99,16 +101,19 @@ function previewImageFromBase64(base64String: string): HTMLImageElement {
     throw new Error('Base64 string is empty');
   }
 
-  const img = document.createElement('img');
-  img.src = base64String;
+  const trimmed = base64String.trim();
+  const { mimeType } = getMimeTypeFromBase64({ base64String: trimmed });
+  const src = /^data:/i.test(trimmed)
+    ? trimmed
+    : `data:${mimeType ?? 'image/png'};base64,${trimmed}`;
 
-  const container = document.createElement('div');
-  container.appendChild(img);
+  const img = document.createElement('img');
+  img.src = src;
 
   const previewContainer = document.getElementById('previewContainer');
   if (previewContainer) {
     previewContainer.innerHTML = '';
-    previewContainer.appendChild(container);
+    previewContainer.appendChild(img);
   }
   else {
     throw new Error('Preview container element not found');
