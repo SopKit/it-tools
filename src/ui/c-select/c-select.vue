@@ -65,24 +65,36 @@ onClickOutside(elementRef, close);
 whenever(keys.escape, close);
 
 watch(
-  value,
-  (newValue) => {
+  [value, options],
+  ([newValue]) => {
     const option = options.value.find((option: CSelectOption<T>) => option.value === newValue);
     if (option) {
       selectedOption.value = option;
+    }
+    else if (newValue === undefined) {
+      selectedOption.value = undefined;
     }
   },
 );
 
 const { searchResult: filteredOptions } = useFuzzySearch<CSelectOption<T>>({
   search: searchQuery,
-  data: options.value,
+  data: options,
   options: {
     keys: ['label'],
     shouldSort: false,
     threshold: 0.3,
     filterEmpty: false,
   },
+});
+
+watch(filteredOptions, (nextOptions) => {
+  if (nextOptions.length === 0) {
+    focusIndex.value = 0;
+  }
+  else if (focusIndex.value >= nextOptions.length) {
+    focusIndex.value = nextOptions.length - 1;
+  }
 });
 
 function close() {
@@ -107,10 +119,11 @@ function handleKeydown(event: KeyboardEvent) {
   const isArrowDown = key === 'ArrowDown';
 
   if (isEnter) {
-    const valueCanBeSelected = isOpen.value && focusIndex.value !== -1;
-
-    if (valueCanBeSelected) {
-      selectOption({ option: filteredOptions.value[focusIndex.value] });
+    if (isOpen.value) {
+      const option = filteredOptions.value[focusIndex.value];
+      if (option) {
+        selectOption({ option });
+      }
     }
     else {
       toggleOpen();
@@ -121,11 +134,17 @@ function handleKeydown(event: KeyboardEvent) {
   }
 
   if (isArrowUpOrDown) {
+    if (filteredOptions.value.length === 0) {
+      focusIndex.value = 0;
+      event.preventDefault();
+      return;
+    }
+
     const increment = isArrowDown ? 1 : -1;
     focusIndex.value = clamp({
       value: focusIndex.value + increment,
       min: 0,
-      max: options.value.length - 1,
+      max: filteredOptions.value.length - 1,
     });
 
     event.preventDefault();
@@ -144,6 +163,9 @@ function onSearchInput() {
         flex flex-nowrap cursor-pointer items-center
         :class="{ 'is-open': isOpen, 'important:border-primary': isOpen }"
         class="c-select-input"
+        role="combobox"
+        aria-haspopup="listbox"
+        :aria-expanded="isOpen"
         tabindex="0"
         hover:important:border-primary
         @click="toggleOpen"
@@ -151,7 +173,7 @@ function onSearchInput() {
       >
         <div flex-1 truncate>
           <slot name="displayed-value">
-            <input v-if="searchable && isOpen" ref="searchInputRef" v-model="searchQuery" type="text" placeholder="Search..." class="search-input" w-full lh-normal color-current @input="onSearchInput">
+            <input v-if="searchable && isOpen" ref="searchInputRef" v-model="searchQuery" type="text" placeholder="Search..." class="search-input" w-full color-current lh-normal @input="onSearchInput">
             <span v-else-if="selectedOption" lh-normal>
               {{ selectedOption.label }}
             </span>
@@ -165,7 +187,7 @@ function onSearchInput() {
       </div>
 
       <transition name="dropdown">
-        <div v-show="isOpen" class="c-select-dropdown" absolute z-10 mt-1 max-h-312px w-full overflow-y-auto pretty-scrollbar>
+        <div v-show="isOpen" role="listbox" class="c-select-dropdown" absolute z-10 mt-1 max-h-312px w-full overflow-y-auto pretty-scrollbar>
           <template v-if="!filteredOptions.length">
             <slot name="empty">
               <div px-4 py-1 opacity-70>
@@ -177,6 +199,8 @@ function onSearchInput() {
             <div
               v-for="(option, index) in filteredOptions"
               :key="option.label"
+              role="option"
+              :aria-selected="selectedOption?.value === option.value"
               cursor-pointer
               px-4
               py-1
