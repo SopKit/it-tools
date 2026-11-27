@@ -47,22 +47,22 @@ interface IWifiQRCodeOptions {
 }
 
 interface GetQrCodeTextOptions {
-  ssid: string
-  password: string
+  ssid?: string
+  password?: string
   encryption: WifiEncryption
-  eapMethod: EAPMethod
+  eapMethod?: EAPMethod
   isHiddenSSID: boolean
   eapAnonymous: boolean
-  eapIdentity: string
-  eapPhase2Method: EAPPhase2Method
+  eapIdentity?: string
+  eapPhase2Method?: EAPPhase2Method
 }
 
-function escapeString(str: string) {
+export function escapeString(str: string) {
   // replaces \, ;, ,, " and : with the same character preceded by a backslash
   return str.replace(/([\\;,:"])/g, '\\$1');
 }
 
-function getQrCodeText(options: GetQrCodeTextOptions): string | null {
+export function getQrCodeText(options: GetQrCodeTextOptions): string | null {
   const { ssid, password, encryption, eapMethod, isHiddenSSID, eapAnonymous, eapIdentity, eapPhase2Method } = options;
   if (!ssid) {
     return null;
@@ -92,8 +92,8 @@ function getQrCodeText(options: GetQrCodeTextOptions): string | null {
     // 5. EAP phase 2 method
     // 6. Identity or anonymous if checked
     // 7. Hidden SSID if checked
-    const identity = eapAnonymous ? 'A:anon' : `I:${escapeString(eapIdentity)}`;
-    const phase2 = eapPhase2Method !== 'None' ? `PH2:${eapPhase2Method};` : '';
+    const identity = eapAnonymous ? 'A:anon' : `I:${escapeString(eapIdentity ?? '')}`;
+    const phase2 = eapPhase2Method && eapPhase2Method !== 'None' ? `PH2:${eapPhase2Method};` : '';
     return `WIFI:S:${escapeString(ssid)};T:WPA2-EAP;P:${escapeString(password)};E:${eapMethod};${phase2}${identity};${isHiddenSSID ? 'H:true' : ''};`;
   }
   return null;
@@ -112,10 +112,12 @@ export function useWifiQRCode({
 }: IWifiQRCodeOptions) {
   const qrcode = ref('');
   const encryption = ref<WifiEncryption>('WPA');
+  let generationId = 0;
 
   watch(
     [ssid, password, encryption, eapMethod, isHiddenSSID, eapAnonymous, eapIdentity, eapPhase2Method, background, foreground].filter(isRef),
     async () => {
+      const currentId = ++generationId;
       // @see https://github.com/zxing/zxing/wiki/Barcode-Contents#wi-fi-network-config-android-ios-11
       // This is the full spec, there's quite a bit of logic to generate the string embeddedin the QR code.
       const text = getQrCodeText({
@@ -129,7 +131,7 @@ export function useWifiQRCode({
         eapPhase2Method: get(eapPhase2Method),
       });
       if (text) {
-        qrcode.value = await QRCode.toDataURL(get(text).trim(), {
+        const dataUrl = await QRCode.toDataURL(text.trim(), {
           color: {
             dark: get(foreground),
             light: get(background),
@@ -138,6 +140,12 @@ export function useWifiQRCode({
           errorCorrectionLevel: 'M',
           ...options,
         });
+        if (currentId === generationId) {
+          qrcode.value = dataUrl;
+        }
+      }
+      else {
+        qrcode.value = '';
       }
     },
     { immediate: true },
