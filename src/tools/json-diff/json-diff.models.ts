@@ -56,18 +56,32 @@ function createDifference(
   key: string | number,
   { onlyShowDifferences = false }: { onlyShowDifferences?: boolean } = {},
 ): Difference {
-  const type = getType(value);
+  const status = getStatus(value, newValue);
+
+  if (status === 'updated') {
+    return {
+      key,
+      type: 'value',
+      value: newValue,
+      oldValue: value,
+      status,
+    };
+  }
+
+  const type = getType(value === undefined ? newValue : value);
 
   if (type === 'object') {
     return {
       key,
       type,
-      children: diffObjects(value as Record<string, unknown>, newValue as Record<string, unknown>, {
-        onlyShowDifferences,
-      }),
+      children: diffObjects(
+        (value ?? {}) as Record<string, unknown>,
+        (newValue ?? {}) as Record<string, unknown>,
+        { onlyShowDifferences },
+      ),
       oldValue: value,
       value: newValue,
-      status: getStatus(value, newValue),
+      status,
     };
   }
 
@@ -75,10 +89,14 @@ function createDifference(
     return {
       key,
       type,
-      children: diffArrays(value as unknown[], newValue as unknown[], { onlyShowDifferences }),
+      children: diffArrays(
+        (value ?? []) as unknown[],
+        (newValue ?? []) as unknown[],
+        { onlyShowDifferences },
+      ),
       value: newValue,
       oldValue: value,
-      status: getStatus(value, newValue),
+      status,
     };
   }
 
@@ -87,7 +105,7 @@ function createDifference(
     type,
     value: newValue,
     oldValue: value,
-    status: getStatus(value, newValue),
+    status,
   };
 }
 
@@ -96,7 +114,7 @@ function diffArrays(
   newArr: unknown[],
   { onlyShowDifferences = false }: { onlyShowDifferences?: boolean } = {},
 ): Difference[] {
-  const maxLength = Math.max(0, arr?.length, newArr?.length);
+  const maxLength = Math.max(0, arr?.length ?? 0, newArr?.length ?? 0);
   return Array.from({ length: maxLength }, (_, i) =>
     createDifference(arr?.[i], newArr?.[i], i, { onlyShowDifferences }),
   ).filter(diff => !onlyShowDifferences || diff.status !== 'unchanged');
