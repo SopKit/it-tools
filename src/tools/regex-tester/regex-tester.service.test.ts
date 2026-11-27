@@ -92,6 +92,79 @@ const regexesData = [
       },
     ],
   },
+  {
+    regex: '(a)|(b)',
+    text: 'ab',
+    flags: 'g',
+    result: [
+      {
+        captures: [
+          {
+            name: '1',
+            value: 'a',
+            start: 0,
+            end: 1,
+          },
+        ],
+        groups: [],
+        index: 0,
+        value: 'a',
+      },
+      {
+        captures: [
+          {
+            name: '2',
+            value: 'b',
+            start: 1,
+            end: 2,
+          },
+        ],
+        groups: [],
+        index: 1,
+        value: 'b',
+      },
+    ],
+  },
+  {
+    regex: '(a)?b',
+    text: 'b',
+    flags: '',
+    result: [
+      {
+        captures: [],
+        groups: [],
+        index: 0,
+        value: 'b',
+      },
+    ],
+  },
+  {
+    regex: '(?<a>foo)|(?<b>bar)',
+    text: 'bar',
+    flags: '',
+    result: [
+      {
+        captures: [
+          {
+            name: '2',
+            value: 'bar',
+            start: 0,
+            end: 3,
+          },
+        ],
+        groups: [
+          {
+            name: 'b',
+            value: 'bar',
+            start: 0,
+            end: 3,
+          },
+        ],
+        index: 0,
+        value: 'bar',
+      },
+    ],
+  },
 ];
 
 describe('regex-tester', () => {

@@ -16,20 +16,19 @@ const unicode = ref(true);
 const unicodeSets = ref(false);
 const visualizerSVG = ref<ShadowRootExpose>();
 
-const regexValidation = useValidation({
-  source: regex,
-  rules: [
-    {
-      message: 'Invalid regex: {0}',
-      validator: value => new RegExp(value),
-      getErrorMessage: (value) => {
-        const _ = new RegExp(value);
-        return '';
-      },
-    },
-  ],
+watch(unicodeSets, (enabled) => {
+  if (enabled) {
+    unicode.value = false;
+  }
 });
-const results = computed(() => {
+
+watch(unicode, (enabled) => {
+  if (enabled) {
+    unicodeSets.value = false;
+  }
+});
+
+const regexFlags = computed(() => {
   let flags = 'd';
   if (global.value) {
     flags += 'g';
@@ -49,9 +48,26 @@ const results = computed(() => {
   else if (unicodeSets.value) {
     flags += 'v';
   }
+  return flags;
+});
 
+const regexValidation = useValidation({
+  source: regex,
+  watch: [regexFlags],
+  rules: [
+    {
+      message: 'Invalid regex: {0}',
+      validator: value => new RegExp(value, regexFlags.value),
+      getErrorMessage: (value) => {
+        const _ = new RegExp(value, regexFlags.value);
+        return '';
+      },
+    },
+  ],
+});
+const results = computed(() => {
   try {
-    return matchRegex(regex.value, text.value, flags);
+    return matchRegex(regex.value, text.value, regexFlags.value);
   }
   catch (_) {
     return [];

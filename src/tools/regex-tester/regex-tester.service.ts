@@ -1,11 +1,11 @@
 interface RegExpGroupIndices {
-  [name: string]: [number, number]
+  [name: string]: [number, number] | undefined
 }
-interface RegExpIndices extends Array<[number, number]> {
-  groups: RegExpGroupIndices
+interface RegExpIndices extends Array<[number, number] | undefined> {
+  groups?: RegExpGroupIndices
 }
 interface RegExpExecArrayWithIndices extends RegExpExecArray {
-  indices: RegExpIndices
+  indices?: RegExpIndices
 }
 interface GroupCapture {
   name: string
@@ -22,7 +22,7 @@ export function matchRegex(regex: string, text: string, flags: string) {
   let lastIndex = -1;
   const re = new RegExp(regex, flags);
   const results = [];
-  let match = re.exec(text) as RegExpExecArrayWithIndices;
+  let match = re.exec(text) as RegExpExecArrayWithIndices | null;
   while (match !== null) {
     if (re.lastIndex === lastIndex || match[0] === '') {
       break;
@@ -30,23 +30,27 @@ export function matchRegex(regex: string, text: string, flags: string) {
     const indices = match.indices;
     const captures: Array<GroupCapture> = [];
     Object.entries(match).forEach(([captureName, captureValue]) => {
-      if (captureName !== '0' && captureName.match(/\d+/)) {
+      if (captureName !== '0' && /^\d+$/.test(captureName) && captureValue !== undefined) {
+        const span = indices?.[Number(captureName)];
         captures.push({
           name: captureName,
           value: captureValue,
-          start: indices[Number(captureName)][0],
-          end: indices[Number(captureName)][1],
+          start: span?.[0] ?? -1,
+          end: span?.[1] ?? -1,
         });
       }
     });
     const groups: Array<GroupCapture> = [];
     Object.entries(match.groups || {}).forEach(([groupName, groupValue]) => {
-      groups.push({
-        name: groupName,
-        value: groupValue,
-        start: indices.groups[groupName][0],
-        end: indices.groups[groupName][1],
-      });
+      if (groupValue !== undefined) {
+        const span = indices?.groups?.[groupName];
+        groups.push({
+          name: groupName,
+          value: groupValue,
+          start: span?.[0] ?? -1,
+          end: span?.[1] ?? -1,
+        });
+      }
     });
     results.push({
       index: match.index,
@@ -55,7 +59,7 @@ export function matchRegex(regex: string, text: string, flags: string) {
       groups,
     });
     lastIndex = re.lastIndex;
-    match = re.exec(text) as RegExpExecArrayWithIndices;
+    match = re.exec(text) as RegExpExecArrayWithIndices | null;
   }
   return results;
 }
