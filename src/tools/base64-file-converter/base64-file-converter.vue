@@ -43,11 +43,6 @@ function previewImage() {
     const image = previewImageFromBase64(base64Input.value);
     image.style.maxWidth = '100%';
     image.style.maxHeight = '400px';
-    const previewContainer = document.getElementById('previewContainer');
-    if (previewContainer) {
-      previewContainer.innerHTML = '';
-      previewContainer.appendChild(image);
-    }
   }
   catch (_) {
     //
